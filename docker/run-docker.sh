@@ -2,6 +2,7 @@
 
 CONTAINER_NAME="zed-ros"
 ZED_LAUNCH="on"
+ZED_POINTS="off"
 
 PROG_NAME=$(basename $0)
 RUN_DIR=$(dirname $(readlink -f $0))
@@ -10,9 +11,10 @@ function usage_exit {
   cat <<_EOS_ 1>&2
   Usage: $PROG_NAME [OPTIONS...]
   OPTIONS:
-    -h, --help              このヘルプを表示
-    -l, --launch {on|off}   ZED ROSノードの起動のON/OFFを切り替える（既定値：on）
-    -n, --name NAME         コンテナの名前を指定
+    -h, --help                  このヘルプを表示
+    -l, --launch {on|off}       ZED ROSノードの起動のON/OFFを切り替える（既定値：on）
+    -p, --pointsraw {on|off}    /points_rawを出力する
+    -n, --name NAME             コンテナの名前を指定
 _EOS_
     cd ${CURRENT_DIR}
     exit 1
@@ -24,6 +26,14 @@ while (( $# > 0 )); do
     elif [[ $1 == "--launch" ]] || [[ $1 == "-l" ]]; then
         if [[ $2 == "on" ]] || [[ $2 == "off" ]]; then
             ZED_LAUNCH=$2
+        else
+            echo "無効なパラメータ： $1 $2"
+            usage_exit
+        fi
+        shift 2
+    elif [[ $1 == "--pointsraw" ]] || [[ $1 == "-p" ]]; then
+        if [[ $2 == "on" ]] || [[ $2 == "off" ]]; then
+            ZED_POINTS=$2
         else
             echo "無効なパラメータ： $1 $2"
             usage_exit
@@ -54,6 +64,9 @@ DOCKER_VOLUME="-v ${XSOCK}:${XSOCK}:rw"
 DOCKER_VOLUME="${DOCKER_VOLUME} -v ${XAUTH}:${XAUTH}:rw"
 DOCKER_VOLUME="${DOCKER_VOLUME} -v ${ASOCK}:${ASOCK}"
 DOCKER_VOLUME="${DOCKER_VOLUME} -v ${ACONF}:/etc/pulse/client.conf"
+DOCKER_VOLUME="${DOCKER_VOLUME} -v ${RUN_DIR}/../autoware-config/zed_megarover.launch:/opt/ros_ws/src/zed-ros-wrapper/zed_wrapper/launch/zed_megarover.launch"
+DOCKER_VOLUME="${DOCKER_VOLUME} -v ${RUN_DIR}/../autoware-config/zed_points_raw.launch:/opt/ros_ws/src/zed-ros-wrapper/zed_wrapper/launch/zed_points_raw.launch"
+DOCKER_VOLUME="${DOCKER_VOLUME} -v ${RUN_DIR}/../autoware-config/zed_autoware.urdf:/opt/ros_ws/src/zed-ros-wrapper/zed_wrapper/urdf/zed_autoware.urdf"
 
 DOCKER_ENV="-e XAUTHORITY=${XAUTH}"
 DOCKER_ENV="${DOCKER_ENV} -e DISPLAY=$DISPLAY"
@@ -66,7 +79,11 @@ DOCKER_NET="host"
 DOCKER_CMD=""
 
 if [[ ${ZED_LAUNCH} == "on" ]]; then
-    DOCKER_CMD="roslaunch src/zed-ros-wrapper/zed_wrapper/launch/zed_no_tf.launch"
+    if [[ ${ZED_POINTS} == "on" ]]; then
+        DOCKER_CMD="roslaunch /opt/ros_ws/src/zed-ros-wrapper/zed_wrapper/launch/zed_points_raw.launch"
+    else
+        DOCKER_CMD="roslaunch /opt/ros_ws/src/zed-ros-wrapper/zed_wrapper/launch/zed_megarover.launch"
+    fi
 fi
 
 if [[ ! -S ${ASOCK} ]]; then
