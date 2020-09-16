@@ -3,6 +3,7 @@
 CONTAINER_NAME="zed-ros"
 ZED_LAUNCH="on"
 ZED_POINTS="off"
+ZED_URDF="off"
 
 PROG_NAME=$(basename $0)
 RUN_DIR=$(dirname $(readlink -f $0))
@@ -13,7 +14,8 @@ function usage_exit {
   OPTIONS:
     -h, --help                  このヘルプを表示
     -l, --launch {on|off}       ZED ROSノードの起動のON/OFFを切り替える（既定値：on）
-    -p, --pointsraw {on|off}    /points_rawを出力する
+    -p, --pointsraw {on|off}    /points_rawを出力する（既定値：off）
+    -u, --urdf {on|off}         ロボットモデルを出力する（既定値：off）
     -n, --name NAME             コンテナの名前を指定
 _EOS_
     cd ${CURRENT_DIR}
@@ -34,6 +36,14 @@ while (( $# > 0 )); do
     elif [[ $1 == "--pointsraw" ]] || [[ $1 == "-p" ]]; then
         if [[ $2 == "on" ]] || [[ $2 == "off" ]]; then
             ZED_POINTS=$2
+        else
+            echo "無効なパラメータ： $1 $2"
+            usage_exit
+        fi
+        shift 2
+    elif [[ $1 == "--urdf" ]] || [[ $1 == "-u" ]]; then
+        if [[ $2 == "on" ]] || [[ $2 == "off" ]]; then
+            ZED_URDF=$2
         else
             echo "無効なパラメータ： $1 $2"
             usage_exit
@@ -84,7 +94,11 @@ if [[ ${ZED_LAUNCH} == "on" ]]; then
     else
         DOCKER_CMD="roslaunch /opt/ros_ws/src/zed-ros-wrapper/zed_wrapper/launch/zed_megarover.launch"
     fi
+    if [[ ${ZED_URDF} == "off" ]]; then
+        DOCKER_CMD="${DOCKER_CMD} publish_urdf:=false"
+    fi
 fi
+
 
 if [[ ! -S ${ASOCK} ]]; then
     pacmd load-module module-native-protocol-unix socket=${ASOCK}
